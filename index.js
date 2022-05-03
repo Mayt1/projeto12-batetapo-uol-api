@@ -140,6 +140,29 @@ app.get("/messages", async (req, res) => { //GET messages
     }
 });
 
+app.post("/status", async (req, res) => {
+    const { user } = req.headers;
+    try {
+        mongoClient.connect();
+        db = mongoClient.db(process.env.DATABASE);
+
+        const haveParticipantOnList = await db.collection("participants").findOne({ name: user });
+        if (!haveParticipantOnList) {
+            return res.sendStatus(404);
+        }
+        await db.collection("participants").updateOne(
+            { name: user },
+            { $set: { lastStatus: Date.now() } }
+        )
+        res.sendStatus(200);
+        // mongoClient.close();
+    } catch (e) {
+        console.error(e);
+        res.sendStatus(422);
+        // mongoClient.close();
+    }
+});
+
 app.listen(process.env.PORTA, ()=> {
     console.log("Back-end funcionando, nao esquece de desligar a cada atualizaçao")
 });
