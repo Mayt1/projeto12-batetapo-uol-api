@@ -7,13 +7,12 @@ import dayjs from "dayjs";
 import { stripHtml } from "string-strip-html";
 import dotenv from "dotenv";
 
-dotenv.config();
-
-const mongoClient = new MongoClient(process.env.MONGO_URI);
-
 const app = express();
 app.use(cors());
 app.use(json());
+
+dotenv.config();
+const mongoClient = new MongoClient(process.env.MONGO_URI);
 
 let db;
 
@@ -162,6 +161,32 @@ app.post("/status", async (req, res) => {
         // mongoClient.close();
     }
 });
+
+setInterval(async () => {
+    try {
+        mongoClient.connect();
+        db = mongoClient.db(process.env.DATABASE);
+        const lastStatus = Date.now();
+        const participants = await db.collection("participants").find().toArray();
+        const filterParticipants = participants.filter(participant => {
+            if (parseInt(participant.lastStatus) + 10000 <= parseInt(lastStatus)){
+                return participant;
+            }
+        })
+
+        if (filterParticipants.length > 0) {
+            filterParticipants.map(participant => {
+                db.collection("participants").deleteOne({ name: participant.name });
+                db.collection("messages").insertOne({ from: participant.name, to: 'Todos', text: 'sai da sala...', type: 'status', time: dayjs(lastStatus).format("HH:mm:ss") });
+                console.log(`Usuário ${participant.name} retirado da sala`);
+            })
+        }
+        // mongoClient.close();
+    } catch (e) {
+        console.error(e);
+        // mongoClient.close();
+    }
+}, 15000);
 
 app.listen(process.env.PORTA, ()=> {
     console.log("Back-end funcionando, nao esquece de desligar a cada atualizaçao")
